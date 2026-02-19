@@ -1,5 +1,6 @@
 port = 8888
 server_addr = ('0.0.0.0', port)
+udp_wait_time = 3
 
 broadcast_addr = ('255.255.255.255', port)
 udp_request = b"Who's QRcode server?"

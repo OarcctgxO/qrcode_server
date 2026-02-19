@@ -10,7 +10,7 @@ async def udp_requester():
     udp_sock.setsockopt(s.SOL_SOCKET, s.SO_BROADCAST, 1)
     udp_sock.setblocking(False)
     try:
-        async with asyncio.timeout(2):
+        async with asyncio.timeout(settings.udp_wait_time):
             while True:
                 await loop.sock_sendto(udp_sock, settings.udp_request, settings.broadcast_addr)
                 wait_task = asyncio.create_task(asyncio.sleep(1))

@@ -88,7 +88,7 @@ class MainServer:
     
 async def main():
     print("Поиск другого работающего сервера...")
-    if await is_there_running_server():
+    if (await is_there_running_server()):
         print("Найден другой работающий сервер в локальной сети. Завершаю работу...")
         input("Нажмите Enter.")
     else:
