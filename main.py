@@ -16,6 +16,9 @@ if getattr(sys, 'frozen', False):
 
 
 class MainServer:
+    """
+    Главный класс сервера. Запускает UDP и TCP сервер, запускает задачи на генерацию QR-кодов
+    """
     def __init__(self):
         self.udp_server: UdpDiscoverer
         self.cpu_exec = concurrent.futures.ProcessPoolExecutor()
@@ -36,7 +39,7 @@ class MainServer:
             print(f'Получено строк вот столько: {len(texts)}. Перечисление:')
             print(*texts)
             future_list = []
-            if len(texts) >= 500:
+            if len(texts) >= settings.thread_pool_limit:
                 for s in texts:
                     future_qr = loop.run_in_executor(self.cpu_exec, make_qr_code, s)
                     future_list.append(future_qr)
@@ -101,6 +104,7 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         input("Штатное завершение работы через KeyboardInterrupt. Нажмите Enter")
+        # уничтожение всего последующего вывода после отмены работы сервера
         black_hole = open(os.devnull, 'w')
         sys.stderr = black_hole
         sys.stdout = black_hole

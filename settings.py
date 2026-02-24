@@ -13,3 +13,4 @@ correction_level = {
     'high': 3,
     'maximum': 2
 }
+thread_pool_limit = 50

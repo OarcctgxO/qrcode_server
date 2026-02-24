@@ -4,6 +4,9 @@ import settings
 
 
 class UdpDiscoverer:
+    """
+    UDP-сервер для принятия broadcast-запросов и ответов на них. Запуск через корутину work, завершение через отмену work и вызов функции close.
+    """
     def __init__(self):
         self.udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_sock.setblocking(False)
@@ -12,7 +15,7 @@ class UdpDiscoverer:
         self.work_task: asyncio.Task
     
     
-    async def work_inner(self):
+    async def _work_inner(self):
         loop = asyncio.get_running_loop()
         while True:
             try:
@@ -28,7 +31,7 @@ class UdpDiscoverer:
         print("UDP сервер завершил работу.")
     
     async def work(self):
-        self.work_task = asyncio.create_task(self.work_inner())
+        self.work_task = asyncio.create_task(self._work_inner())
         await self.work_task
     
     def close(self):

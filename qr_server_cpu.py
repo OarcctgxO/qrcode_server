@@ -7,6 +7,9 @@ import settings
 
 
 def make_qr_code(text:str = ''):
+    """
+    Основная CPU-bound функция, генерирующая QR-код. Принимает текст в виде str-строки и возвращает base64(str ascii)-строку с png файлом.
+    """
     logo_path = Path(settings.logo_path) if settings.logo_path else None
     add_logo = logo_path and logo_path.is_file()
     

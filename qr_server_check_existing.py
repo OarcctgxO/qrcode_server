@@ -5,6 +5,9 @@ import settings
 
 
 async def udp_requester():
+    """
+    Корутина для поиска сервера в локальной сети. Возвращает адрес найденного сервера. Если не найден - поднимает asyncio.TimeoutError.
+    """
     loop = asyncio.get_running_loop()
     udp_sock = s.socket(s.AF_INET, s.SOCK_DGRAM)
     udp_sock.setsockopt(s.SOL_SOCKET, s.SO_BROADCAST, 1)
@@ -33,6 +36,9 @@ async def udp_requester():
 
 
 async def is_there_running_server():
+    """
+    Корутина проверяет существование сервера в локальной сети и возвращает True, если сервер найден, иначе False.
+    """
     try:
         await udp_requester()
         return True
