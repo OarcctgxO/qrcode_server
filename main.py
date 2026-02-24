@@ -32,9 +32,9 @@ class MainServer:
         try:
             data = await reader.read(10240)
             try:
-                texts = data.decode('utf-8').split('|')
+                texts = data.decode('utf-8').split('\n')
             except UnicodeDecodeError:
-                texts = data.decode('windows-1251').split('|')
+                texts = data.decode('windows-1251').split('\n')
             texts = [text for text in texts if text] #purge empty strings
             print(f'Получено строк вот столько: {len(texts)}. Перечисление:')
             print(*texts)
@@ -53,7 +53,7 @@ class MainServer:
             for f in future_list:
                 res = await f
                 print(f'Сформирован qr-код и закодирован в base64 - строка {counter}')
-                result = '|'.join((result, res)) if result else res
+                result = '\n'.join((result, res)) if result else res
                 counter += 1
             
             print('Все коды готовы, начинаю отправку.')
