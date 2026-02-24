@@ -1,1 +1,1 @@
-python -m PyInstaller --onefile qr_server.py
+python -m PyInstaller --onefile main.py
