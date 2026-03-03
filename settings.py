@@ -1,6 +1,6 @@
 port = 8888
 server_addr = ('0.0.0.0', port)
-udp_wait_time = 3
+udp_wait_time = 2
 
 broadcast_addr = ('255.255.255.255', port)
 udp_request = b"Who's QRcode server?"
@@ -13,4 +13,4 @@ correction_level = {
     'high': 3,
     'maximum': 2
 }
-thread_pool_limit = 50
+workers = 50

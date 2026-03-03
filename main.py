@@ -8,67 +8,59 @@ from qr_server_cpu import make_qr_code
 from qr_server_check_existing import is_there_running_server
 
 
-#PyInstaller + multiprocessing
-if getattr(sys, 'frozen', False):
-    import multiprocessing
-    multiprocessing.freeze_support()
-    os.environ['MULTIPROCESSING_METHOD'] = 'spawn'
-
-
 class MainServer:
     """
     Главный класс сервера. Запускает UDP и TCP сервер, запускает задачи на генерацию QR-кодов
     """
     def __init__(self):
-        self.udp_server: UdpDiscoverer
-        self.cpu_exec = concurrent.futures.ProcessPoolExecutor()
-        
+        self.udp_server = UdpDiscoverer()
         self.tcp_server: asyncio.Server
+        self.cpu_exec = concurrent.futures.ThreadPoolExecutor(max_workers=settings.workers)
+
     
     async def client_handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        print('Новое TCP подключение. Жду строки текста.')
+        print('Открыто TCP-соединение. Жду строки текста:')
         loop = asyncio.get_running_loop()
-        
+        future_list = []
         try:
-            data = await reader.read(10240)
             try:
-                texts = data.decode('utf-8').split('\n')
-            except UnicodeDecodeError:
-                texts = data.decode('windows-1251').split('\n')
-            texts = [text for text in texts if text] #purge empty strings
-            print(f'Получено строк вот столько: {len(texts)}. Перечисление:')
-            print(*texts)
-            future_list = []
-            if len(texts) >= settings.thread_pool_limit:
-                for s in texts:
-                    future_qr = loop.run_in_executor(self.cpu_exec, make_qr_code, s)
-                    future_list.append(future_qr)
-            else:
-                for s in texts:
-                    task_qr = asyncio.create_task(asyncio.to_thread(make_qr_code, s))
-                    future_list.append(task_qr)
+                async with asyncio.timeout(5):
+                    while True:
+                        data = await reader.readuntil(b'\n')
+                        try:
+                            text = data.decode('utf-8').rstrip('\n')
+                        except UnicodeDecodeError:
+                            text = data.decode('windows-1251').rstrip('\n')
+                        
+                        if not text:
+                            print('\nПолучен сигнал конца сообщения - все строки получены.')
+                            break
+                        print(text, end=' ')
+                        ftr = loop.run_in_executor(self.cpu_exec, make_qr_code, text)
+                        future_list.append(ftr)
+            except asyncio.TimeoutError:
+                print('Таймаут получения данных: данных слишком много или клиент не отправляет сигнал конца сообщения (\\n\\n)')
             
-            counter = 1
-            result = ''
-            for f in future_list:
-                res = await f
-                print(f'Сформирован qr-код и закодирован в base64 - строка {counter}')
-                result = '\n'.join((result, res)) if result else res
-                counter += 1
             
-            print('Все коды готовы, начинаю отправку.')
+            res = [await f for f in future_list]
+            result = '\n'.join(res) + '\n\n'
+
+            print(f'Готово кодов: {len(res)}. Начинаю отправку...')
             writer.write(result.encode('ascii'))
             await writer.drain()
             print('Все коды отправлены, закрываю соединение.')
+            
         except Exception as er:
             print(repr(er))
         finally:
             writer.close()
+            try:
+                await writer.wait_closed()
+            except ConnectionError:
+                pass
         
     
     async def close(self):
-        if hasattr(self, 'udp_server') and self.udp_server:
-            self.udp_server.close()
         if hasattr(self, 'tcp_server') and self.tcp_server:
             print("TCP сервер получает запрос на отмену...")
             self.tcp_server.close()
@@ -78,14 +70,15 @@ class MainServer:
             
     
     async def start_server(self):
+        self.tcp_server = await asyncio.start_server(self.client_handler, *settings.server_addr, reuse_address=True)
+        task_udp = asyncio.create_task(self.udp_server.work())
+        task_tcp = asyncio.create_task(self.tcp_server.serve_forever())
+        print('Сервер qr-кодов успешно запущен.')
         try:
-            self.udp_server = UdpDiscoverer()
-            self.tcp_server = await asyncio.start_server(self.client_handler, *settings.server_addr, reuse_address=True)
-            task_udp = asyncio.create_task(self.udp_server.work())
-            task_tcp = asyncio.create_task(self.tcp_server.serve_forever())
-            print('Сервер qr-кодов успешно запущен.')
-            await task_tcp
+            await asyncio.gather(task_tcp, task_udp, return_exceptions=True)
         finally:
+            task_udp.cancel()
+            task_tcp.cancel()
             await self.close()
 
     
@@ -104,7 +97,6 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         input("Штатное завершение работы через KeyboardInterrupt. Нажмите Enter")
-        # уничтожение всего последующего вывода после отмены работы сервера
         black_hole = open(os.devnull, 'w')
         sys.stderr = black_hole
         sys.stdout = black_hole
