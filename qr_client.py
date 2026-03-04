@@ -2,6 +2,8 @@ import socket
 import base64
 import select
 
+import settings
+
 
 #простенький клиент для теста сервера
 if __name__ == '__main__':
@@ -23,20 +25,30 @@ if __name__ == '__main__':
         udp_sock.close()
         tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        tcp_sock.connect(addr)
+        tcp_sock.connect(("127.0.0.1", settings.port))
+        
         #текст для отправки
-        text_to_code = 'sample text'
+        text_to_code = [str(i) for i in range(1000)]
         #----------------------------
-        tcp_sock.send(text_to_code.encode())
-        data = tcp_sock.recv(102400)
-        base64pictures = data.decode('ascii').split('|')
+        tcp_sock.send(('\n'.join(text_to_code) + '\n\n').encode())
+        data = b''
+        while True:
+            part = tcp_sock.recv(1024)
+            if not part:
+                break
+            else:
+                data += part
+        base64pictures = data.decode('ascii').split('\n')
         base64pictures = [byte_string.encode('ascii') for byte_string in base64pictures if byte_string] #purge empty bytes
+        print(len(base64pictures))
+        """
         counter = 1
         for b64pic in base64pictures:
             img_bytes = base64.b64decode(b64pic)
             with open(f'picture{counter}.png', 'wb') as file:
                 file.write(img_bytes)
             counter += 1
+        """
     except BaseException as er:
         print(er)
         input()

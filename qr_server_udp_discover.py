@@ -22,6 +22,11 @@ class UdpDiscoverer:
                 if data == settings.udp_request:
                     print(f'Обнаружен UDP-discovery запрос с адреса {address}, отвечаю...')
                     await loop.sock_sendto(self.udp_sock, settings.udp_response, address)
+                elif data == settings.udp_kill:
+                    print(f'Обнаружен UDP-запрос на прекращение работы с адреса {address}, начинаю завершение работы сервера...')
+                    print("UDP сервер получает запрос на отмену...")
+                    print("UDP сервер завершил работу.")
+                    return
             except Exception:
                 pass
     

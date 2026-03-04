@@ -75,7 +75,11 @@ class MainServer:
         task_tcp = asyncio.create_task(self.tcp_server.serve_forever())
         print('Сервер qr-кодов успешно запущен.')
         try:
-            await asyncio.gather(task_tcp, task_udp, return_exceptions=True)
+            done, _ = await asyncio.wait([task_tcp, task_udp], return_when="FIRST_COMPLETED")
+            try:
+                done.pop().result() # нет исключения - udp-запрос на завершение работы
+            except:
+                raise
         finally:
             task_udp.cancel()
             task_tcp.cancel()
@@ -89,7 +93,11 @@ async def main():
         input("Нажмите Enter.")
     else:
         print('Сервер не найден, новый сервер запускается...')
-        await MainServer().start_server()
+        server = MainServer()
+        try:
+            await MainServer().start_server()
+        finally:
+            del server
             
 
 if __name__ == '__main__':
@@ -97,6 +105,6 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         input("Штатное завершение работы через KeyboardInterrupt. Нажмите Enter")
-        black_hole = open(os.devnull, 'w')
-        sys.stderr = black_hole
-        sys.stdout = black_hole
+    black_hole = open(os.devnull, 'w')
+    sys.stderr = black_hole
+    sys.stdout = black_hole
