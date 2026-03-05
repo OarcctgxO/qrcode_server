@@ -13,19 +13,23 @@ async def send_and_recv(udp_sock: s.socket):
     await loop.sock_sendto(udp_sock, settings.udp_request, settings.broadcast_addr)
     get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 1024))
     wait_task = asyncio.create_task(asyncio.sleep(1))
-    while True:
-        done, _ = await asyncio.wait([get_task, wait_task], return_when='FIRST_COMPLETED')
-        if get_task in done:
-            data, addr = await get_task
-            if data == settings.udp_response:
-                wait_task.cancel()
-                return addr
+    try:
+        while True:
+            done, _ = await asyncio.wait([get_task, wait_task], return_when='FIRST_COMPLETED')
+            if get_task in done:
+                data, addr = await get_task
+                if data == settings.udp_response:
+                    wait_task.cancel()
+                    return addr
+                else:
+                    get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 1024))
+                    continue
             else:
-                get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 1024))
-                continue
-        else:
-            get_task.cancel()
-            return None
+                get_task.cancel()
+                return None
+    finally:
+        get_task.cancel()
+        await asyncio.gather(get_task, return_exceptions=True)
 
 
 async def udp_requester():
@@ -51,6 +55,8 @@ async def udp_requester():
                 worker.cancel()
                 return None
     finally:
+        worker.cancel()
+        await asyncio.gather(worker, return_exceptions=True)
         udp_sock.close()
 
 
