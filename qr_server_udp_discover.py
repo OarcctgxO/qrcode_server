@@ -16,20 +16,31 @@ class UdpDiscoverer:
     
     async def work(self):
         loop = asyncio.get_running_loop()
-        while True:
-            try:
-                data, address = await loop.sock_recvfrom(self.udp_sock, 1024)
-                if data == settings.udp_request:
-                    print(f'Обнаружен UDP-discovery запрос с адреса {address}, отвечаю...')
-                    await loop.sock_sendto(self.udp_sock, settings.udp_response, address)
-                elif data == settings.udp_kill:
-                    print(f'Обнаружен UDP-запрос на прекращение работы с адреса {address}, начинаю завершение работы сервера...')
-                    print("UDP сервер получает запрос на отмену...")
-                    print("UDP сервер завершил работу.")
-                    return
-            except Exception:
-                pass
-    
-    
-    def close(self):
-        self.udp_sock.close()
+        recv_task = asyncio.create_task(loop.sock_recvfrom(self.udp_sock, 1024))
+        try:
+            while True:
+                try:
+                    data, address = await recv_task
+                    if data == settings.udp_request:
+                        print(f'Обнаружен UDP-discovery запрос с адреса {address}, отвечаю...')
+                        await loop.sock_sendto(self.udp_sock, settings.udp_response, address)
+                    elif data == settings.udp_kill:
+                        print(f'Обнаружен UDP-запрос на прекращение работы с адреса {address}, начинаю завершение работы сервера...')
+                        print("UDP сервер получает запрос на отмену...")
+                        return
+                    else:
+                        recv_task = asyncio.create_task(loop.sock_recvfrom(self.udp_sock, 1024))
+                        continue
+                except Exception:
+                    recv_task = asyncio.create_task(loop.sock_recvfrom(self.udp_sock, 1024))
+                    continue
+        except asyncio.CancelledError:
+            raise
+        except:
+            print("Фатальное исключение на UDP сервере, завершается работа и пробрасывается исключение...")
+            raise
+        finally:
+            recv_task.cancel()
+            await asyncio.gather(recv_task, return_exceptions=True)
+            self.udp_sock.close
+            print("UDP сервер завершил работу.")
