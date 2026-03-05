@@ -1,3 +1,6 @@
+from os import cpu_count
+
+
 port = 8888
 server_addr = ('0.0.0.0', port)
 udp_wait_time = 2
@@ -14,4 +17,4 @@ correction_level = {
     'high': 3,
     'maximum': 2
 }
-workers = 50
+workers = cpu_count()

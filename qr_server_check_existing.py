@@ -4,33 +4,52 @@ import asyncio
 import settings
 
 
-async def udp_requester():
+async def send_and_recv(udp_sock: s.socket):
     """
-    Корутина для поиска сервера в локальной сети. Возвращает адрес найденного сервера. Если не найден - поднимает asyncio.TimeoutError.
+    Корутина, отправляющаяя broadcast запрос и ожидающаяя правильного ответа 1 секунду. Возвращает адрес ответившего. Если нет ответа - None.
+    Нарочно не использует asyncio.timeout из-за проблем с отменой sock_recvfrom и выводом ошибок после прекращения работы программы
     """
     loop = asyncio.get_running_loop()
+    await loop.sock_sendto(udp_sock, settings.udp_request, settings.broadcast_addr)
+    get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 1024))
+    wait_task = asyncio.create_task(asyncio.sleep(1))
+    while True:
+        done, _ = await asyncio.wait([get_task, wait_task], return_when='FIRST_COMPLETED')
+        if get_task in done:
+            data, addr = await get_task
+            if data == settings.udp_response:
+                wait_task.cancel()
+                return addr
+            else:
+                get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 1024))
+                continue
+        else:
+            get_task.cancel()
+            return None
+
+
+async def udp_requester():
+    """
+    Корутина для поиска сервера в локальной сети. Возвращает адрес найденного сервера. Если не найден - None.
+    Нарочно не использует asyncio.timeout из-за проблем с отменой sock_recvfrom и выводом ошибок после прекращения работы программы
+    """
     udp_sock = s.socket(s.AF_INET, s.SOCK_DGRAM)
     udp_sock.setsockopt(s.SOL_SOCKET, s.SO_BROADCAST, 1)
     udp_sock.setblocking(False)
+    timer = asyncio.create_task(asyncio.sleep(settings.udp_wait_time))
+    worker = asyncio.create_task(send_and_recv(udp_sock))
     try:
-        async with asyncio.timeout(settings.udp_wait_time):
-            while True:
-                await loop.sock_sendto(udp_sock, settings.udp_request, settings.broadcast_addr)
-                wait_task = asyncio.create_task(asyncio.sleep(1))
-                while True:
-                    get_task = asyncio.create_task(loop.sock_recvfrom(udp_sock, 64))
-                    done, _ = await asyncio.wait([get_task, wait_task], return_when="FIRST_COMPLETED")
-                    if not get_task in done:
-                        get_task.cancel()
-                        break
-                    else:
-                        if (await get_task)[0] == settings.udp_response:
-                            return (await get_task)[1]
-                        else:
-                            continue
-    except asyncio.TimeoutError as er:
-        new_error = asyncio.TimeoutError('Нет ответа от UDP-сервера')
-        raise new_error from er
+        while True:
+            done, _ = await asyncio.wait([timer, worker], return_when='FIRST_COMPLETED')
+            if worker in done:
+                if worker.result():
+                    return worker.result()
+                else:
+                    worker = asyncio.create_task(send_and_recv(udp_sock))
+                    continue
+            else:
+                worker.cancel()
+                return None
     finally:
         udp_sock.close()
 
@@ -39,11 +58,7 @@ async def is_there_running_server():
     """
     Корутина проверяет существование сервера в локальной сети и возвращает True, если сервер найден, иначе False.
     """
-    try:
-        await udp_requester()
-        return True
-    except asyncio.TimeoutError:
-        return False
+    return bool(await udp_requester())
         
 
 if __name__ == '__main__':

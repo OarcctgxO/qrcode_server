@@ -93,18 +93,11 @@ async def main():
         input("Нажмите Enter.")
     else:
         print('Сервер не найден, новый сервер запускается...')
-        server = MainServer()
-        try:
-            await MainServer().start_server()
-        finally:
-            del server
-            
+        await MainServer().start_server()
+        
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         input("Штатное завершение работы через KeyboardInterrupt. Нажмите Enter")
-    black_hole = open(os.devnull, 'w')
-    sys.stderr = black_hole
-    sys.stdout = black_hole
