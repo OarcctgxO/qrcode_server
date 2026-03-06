@@ -43,5 +43,5 @@ class UdpDiscoverer:
         finally:
             recv_task.cancel()
             await asyncio.gather(recv_task, return_exceptions=True)
-            self.udp_sock.close
+            self.udp_sock.close()
             print("UDP сервер завершил работу.")
