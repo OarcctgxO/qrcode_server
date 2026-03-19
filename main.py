@@ -41,12 +41,10 @@ class MainServer:
             except asyncio.TimeoutError:
                 print('Таймаут получения данных: данных слишком много или клиент не отправляет сигнал конца сообщения (\\n\\n)')
             
+            for f in future_list:
+                piece = (await f) + '\n'
+                writer.write(piece.encode('ascii'))
             
-            res = [await f for f in future_list]
-            result = '\n'.join(res) + '\n\n'
-
-            print(f'Готово кодов: {len(res)}. Начинаю отправку...')
-            writer.write(result.encode('ascii'))
             await writer.drain()
             print('Все коды отправлены, закрываю соединение.')
             
